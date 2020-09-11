@@ -1,0 +1,21 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: pvc-test-pod
+spec:
+  containers:
+  - name: test-pod
+    image: gcr.io/google_containers/busybox:1.24
+    command:
+      - "/bin/sh"
+    args:
+      - "-c"
+      - "ls -R /mnt/hello && exit 0 || exit 1"
+    volumeMounts:
+      - name: hello-vol
+        mountPath: "/mnt/hello"
+  restartPolicy: "Never"
+  volumes:
+    - name: hello-vol
+      persistentVolumeClaim:
+        claimName: hello-pvc
