@@ -1,12 +1,13 @@
 import traceback
+import yaml
 from kubernetes import client, config
+from os import path
 from config.pgconfig import (
-    K8S_CONTEXT,
     K8S_NAMESPACE,
     DEPLOYEMNT_NAME,
     IMAGE_V2,
     INGRESS_NAME,
-    NGINX_MIRROR_ANNOTATION,
+    NGINX_MIRROR_CONFIG,
 )
 
 
@@ -20,12 +21,10 @@ class K8sController:
     configuration from local `.kube` path
     """
 
-    def __init__(self, context=K8S_CONTEXT, namespace=K8S_NAMESPACE):
+    def __init__(self, namespace=K8S_NAMESPACE):
         self.ns = namespace
-        self.ctx = context
 
-        # config.load_kube_config(context=self.ctx)
-        # print(f"Selected context: {self.ctx}")
+        # config.load_kube_config(context="docker-desktop")
         config.load_incluster_config()
 
         self.app_api = client.AppsV1Api()
@@ -61,12 +60,14 @@ class K8sController:
                 print(
                     f"Found target resource. name={item.metadata.name}. Updating ingress ..."
                 )
-                # item.metadata.annotations = {"nginx.org/location-snippets": "", "nginx.org/server-snippets": ""}
-                item.metadata.annotations = NGINX_MIRROR_ANNOTATION
+                # load mirror configurations yaml
+                conf = yaml.safe_load(open(path.join("config", NGINX_MIRROR_CONFIG)))
+                print(f"Mirror configuration loaded. {conf}")
+                item.metadata.annotations = conf
                 res = self.net_api.patch_namespaced_ingress(
                     name=name, namespace=self.ns, body=item
                 )
-                print(f"Ingress updated. {res.status}")
+                print(f"Applied nginx config to Ingress. {res.status}")
                 return
 
     def run(self):
