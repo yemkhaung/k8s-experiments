@@ -1,0 +1,13 @@
+apiVersion: skaffold/v2beta7
+kind: Config
+metadata:
+  name: python-k8s
+build:
+  artifacts:
+  - image: galonedocker/k8s
+  local:
+    push: True
+deploy:
+  kubectl:
+    manifests:
+    - controllerjob.yaml

@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k8s-controller
+spec:
+  template:
+    spec:
+      containers:
+      - name: k8s-controller
+        image: galonedocker/k8s:controller
+      restartPolicy: Never
+  backoffLimit: 4
+  activeDeadlineSeconds: 100
+  ttlSecondsAfterFinished: 3600
