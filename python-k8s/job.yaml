@@ -12,3 +12,4 @@ spec:
       - name: k8s-controller
         image: galonedocker/k8s:controller
       restartPolicy: Never
+      serviceAccountName: contr-ctrl
