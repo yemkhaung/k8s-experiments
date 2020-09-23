@@ -5,11 +5,11 @@ metadata:
 spec:
   backoffLimit: 4
   activeDeadlineSeconds: 100
-  ttlSecondsAfterFinished: 100
   template:
     spec:
       containers:
       - name: k8s-controller
         image: galonedocker/k8s:controller
+        imagePullPolicy: Always
       restartPolicy: Never
-      serviceAccountName: contr-ctrl
+      serviceAccountName: k8s-controller

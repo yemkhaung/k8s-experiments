@@ -10,4 +10,4 @@ build:
 deploy:
   kubectl:
     manifests:
-    - controllerjob.yaml
+    - job.yaml

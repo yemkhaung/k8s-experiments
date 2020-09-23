@@ -1,7 +1,5 @@
 import traceback
-import yaml
 from kubernetes import client, config
-from os import path
 from config.pgconfig import (
     K8S_NAMESPACE,
     DEPLOYEMNT_NAME,
@@ -60,10 +58,11 @@ class K8sController:
                 print(
                     f"Found target resource. name={item.metadata.name}. Updating ingress ..."
                 )
-                # load mirror configurations yaml
-                conf = yaml.safe_load(open(path.join("config", NGINX_MIRROR_CONFIG)))
-                print(f"Mirror configuration loaded. {conf}")
-                item.metadata.annotations = conf
+                item.metadata.annotations = NGINX_MIRROR_CONFIG
+                item.metadata.annotations = {
+                    "nginx.org/server-snippets": "",
+                    "nginx.org/location-snippets": "",
+                }
                 res = self.net_api.patch_namespaced_ingress(
                     name=name, namespace=self.ns, body=item
                 )
