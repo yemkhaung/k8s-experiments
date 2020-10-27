@@ -1,0 +1,179 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: datadog-gpu-agent
+  namespace: kube-system
+  labels: {}
+spec:
+  selector:
+    matchLabels:
+      app: datadog-gpu-agent
+  template:
+    metadata:
+      labels:
+        app: datadog-gpu-agent
+    spec:
+      containers:
+        - name: nvml-agent
+          image: ohsawa0515/datadog-nvml:latest
+          imagePullPolicy: IfNotPresent
+          command: ["agent", "run"]
+          resources: {}
+          env:
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog
+                  key: api-key
+            - name: DD_SITE
+              value: datadoghq.com
+            - name: DD_KUBERNETES_KUBELET_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: KUBERNETES
+              value: "yes"
+            - name: DOCKER_HOST
+              value: unix:///host/var/run/docker.sock
+          volumeMounts:
+            - name: installinfo
+              subPath: install_info
+              mountPath: /etc/datadog-agent/install_info
+              readOnly: true
+            - name: config
+              mountPath: /etc/datadog-agent
+            - name: runtimesocketdir
+              mountPath: /host/var/run
+              mountPropagation: None
+              readOnly: true
+            - name: sysprobe-socket-dir
+              mountPath: /var/run/sysprobe
+              readOnly: true
+            - name: sysprobe-config
+              mountPath: /etc/datadog-agent/system-probe.yaml
+              subPath: system-probe.yaml
+            - name: procdir
+              mountPath: /host/proc
+              mountPropagation: None
+              readOnly: true
+            - name: cgroups
+              mountPath: /host/sys/fs/cgroup
+              mountPropagation: None
+              readOnly: true
+            - name: pointerdir
+              mountPath: /opt/datadog-agent/run
+              mountPropagation: None
+            - name: logpodpath
+              mountPath: /var/log/pods
+              mountPropagation: None
+              readOnly: true
+            - name: logdockercontainerpath
+              mountPath: /var/lib/docker/containers
+              mountPropagation: None
+              readOnly: true
+      initContainers:
+        - name: init-volume
+          image: "datadog/agent:7.23.1-rc.1"
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-c"]
+          args:
+            - cp -r /etc/datadog-agent /opt
+          volumeMounts:
+            - name: config
+              mountPath: /opt/datadog-agent
+          resources: {}
+        - name: init-config
+          image: "datadog/agent:7.23.1-rc.1"
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-c"]
+          args:
+            - for script in $(find /etc/cont-init.d/ -type f -name '*.sh' | sort) ; do bash $script ; done
+          volumeMounts:
+            - name: config
+              mountPath: /etc/datadog-agent
+            - name: procdir
+              mountPath: /host/proc
+              mountPropagation: None
+              readOnly: true
+            - name: runtimesocketdir
+              mountPath: /host/var/run
+              mountPropagation: None
+              readOnly: true
+            - name: sysprobe-config
+              mountPath: /etc/datadog-agent/system-probe.yaml
+              subPath: system-probe.yaml
+          env:
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog
+                  key: api-key
+            - name: DD_KUBERNETES_KUBELET_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: KUBERNETES
+              value: "yes"
+            - name: DOCKER_HOST
+              value: unix:///host/var/run/docker.sock
+          resources: {}
+        - name: seccomp-setup
+          image: "datadog/agent:7.23.1-rc.1"
+          command:
+            - cp
+            - /etc/config/system-probe-seccomp.json
+            - /host/var/lib/kubelet/seccomp/system-probe
+          volumeMounts:
+            - name: datadog-agent-security
+              mountPath: /etc/config
+            - name: seccomp-root
+              mountPath: /host/var/lib/kubelet/seccomp
+              mountPropagation: None
+          resources: {}
+      volumes:
+        - name: installinfo
+          configMap:
+            name: datadog-agent-installinfo
+        - name: config
+          emptyDir: {}
+        - hostPath:
+            path: /var/run
+          name: runtimesocketdir
+        - hostPath:
+            path: /proc
+          name: procdir
+        - hostPath:
+            path: /sys/fs/cgroup
+          name: cgroups
+        - name: s6-run
+          emptyDir: {}
+        - name: sysprobe-config
+          configMap:
+            name: datadog-agent-system-probe-config
+        - name: datadog-agent-security
+          configMap:
+            name: datadog-agent-security
+        - hostPath:
+            path: /var/lib/kubelet/seccomp
+          name: seccomp-root
+        - hostPath:
+            path: /sys/kernel/debug
+          name: debugfs
+        - name: sysprobe-socket-dir
+          emptyDir: {}
+        - hostPath:
+            path: /etc/passwd
+          name: passwd
+        - hostPath:
+            path: "/var/lib/datadog-agent/logs"
+          name: pointerdir
+        - hostPath:
+            path: /var/log/pods
+          name: logpodpath
+        - hostPath:
+            path: /var/lib/docker/containers
+          name: logdockercontainerpath
+      tolerations:
+      serviceAccountName: datadog-agent
+      nodeSelector:
+        kubernetes.io/os: linux
